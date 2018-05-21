@@ -13,7 +13,7 @@ from nature import NatureQN
 from config.config import config
 
 
-class MyDQN(NatureQN):
+class DoubleDQN(NatureQN):
     """
     Double Q learning
     see https://arxiv.org/pdf/1509.06461.pdf
