@@ -7,10 +7,10 @@ import tensorflow.contrib.layers as layers
 
 from utils.general import get_logger
 from utils.test_env import EnvTest
-from q1_schedule import LinearExploration, LinearSchedule
-from q3_nature import NatureQN
+from schedule import LinearExploration, LinearSchedule
+from nature import NatureQN
 
-from configs.q6_bonus_question import config
+from config.config import config
 
 
 class MyDQN(NatureQN):
