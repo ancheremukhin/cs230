@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import csv
 from datetime import datetime
+import copy
 
 
 def foreach(*datasets):
@@ -12,12 +13,12 @@ def foreach(*datasets):
         if not dataset.endswith('.csv'):
             dataset += '.csv'
 
-        with open('datasets/{0}'.format(dataset), 'rb') as csvfile:
+        with open('datasets/{0}'.format(dataset), 'r') as csvfile:
             reader = csv.reader(csvfile, delimiter=',')
             # skip header
-            reader.next()
+            next(reader)
             for row in reader:
-                yield map(lambda x: x.strip(), row)
+                yield list(map(lambda x: x.strip(), row))
 
 
 # user info
@@ -92,8 +93,8 @@ for row in foreach('coupon_visit_train'):
         assert row[7]
         coupon_visits[-1]['purchase_id'] = row[7]
 
-# denormolize customer trajectories
-trajectories = list()
+# build customer interactions
+interactions = list()
 for visit in coupon_visits:
 
     # merge coupon info
@@ -102,14 +103,14 @@ for visit in coupon_visits:
         print("No coupon {0}".format(visit['coupon_id']))
         continue
 
-    trajectory = {}
-    trajectory['coupon_id'] = coupon['coupon_id']
-    trajectory['discount_rate'] = coupon['discount_rate']
-    trajectory['list_price'] = coupon['list_price']
-    trajectory['discount_price'] = coupon['discount_price']
-    trajectory['sales_release_date'] = coupon['sales_release_date']
-    trajectory['sales_end_date'] = coupon['sales_end_date']
-    trajectory['sales_period'] = coupon['sales_period']
+    interaction = {}
+    interaction['coupon_id'] = coupon['coupon_id']
+    interaction['discount_rate'] = coupon['discount_rate']
+    interaction['list_price'] = coupon['list_price']
+    interaction['discount_price'] = coupon['discount_price']
+    interaction['sales_release_date'] = coupon['sales_release_date']
+    interaction['sales_end_date'] = coupon['sales_end_date']
+    interaction['sales_period'] = coupon['sales_period']
 
     # merge coupon details
     detail = None
@@ -117,30 +118,102 @@ for visit in coupon_visits:
         detail = coupon_details.get(visit['purchase_id'], None)
         assert detail['customer_id'] == visit['customer_id']
 
-    trajectory['purchased_count'] = detail['purchased_count'] if detail else 0
+    interaction['purchased_count'] = detail['purchased_count'] if detail else 0
 
     # merge customer info
     user = users.get(visit['customer_id'], None)
     assert user
 
-    trajectory['age'] = user['age']
-    trajectory['reg_date'] = user['reg_date']
-    trajectory['sex'] = user['sex']
+    interaction['age'] = user['age']
+    interaction['reg_date'] = user['reg_date']
+    interaction['sex'] = user['sex']
 
-    trajectory['customer_id'] = visit['customer_id']
-    trajectory['purchased'] = visit['purchased']
-    trajectory['view_date'] = visit['view_date']
+    interaction['customer_id'] = visit['customer_id']
+    interaction['purchased'] = visit['purchased']
+    interaction['view_date'] = visit['view_date']
 
-    trajectories.append(trajectory)
+    interactions.append(interaction)
 
-trajectories = sorted(
-    trajectories,
+interactions = sorted(
+    interactions,
     key=lambda x: [x['customer_id'], x['view_date']]
 )
 
-print("Built {0} customer trajectories".format(len(trajectories)))
+print(
+    "Built {0} interactions with {1} unique customers".format(
+        len(interactions),
+        len(set(map(lambda x: x['customer_id'], interactions)))
+    )
+)
 
-with open('user_trajectories.csv', 'wb') as csvfile:
+with open('user_interactions.csv', 'w') as csvfile:
+    csvwriter = csv.writer(csvfile, delimiter=',')
+    csvwriter.writerow(interactions[0].keys())
+    for interaction in interactions:
+        csvwriter.writerow(interaction.values())
+
+# build customer trajectories
+trajectories = list()
+trajectory = {'customer_id': None}
+
+for interaction in interactions:
+
+    if interaction['customer_id'] != trajectory['customer_id']:
+        trajectory = {
+            # history
+            'visit': 0,
+            'visit_time_recency': 0,
+            'success': 0,
+            'success_time_recency': 0,
+            'purchased': 0,
+            'spent': 0,
+            # customer
+            'customer_id': interaction['customer_id'],
+            'age': interaction['age'],
+            'reg_date': interaction['reg_date'],
+            'sex': interaction['sex'],
+            # view date
+            'view_date': interaction['view_date'],
+        }
+
+    # state
+    trajectory['visit_time_recency'] = (
+        interaction['view_date'] - trajectory['view_date']
+    ).total_seconds()
+
+    trajectory['success_time_recency'] += (
+        interaction['view_date'] - trajectory['view_date']
+    ).total_seconds()
+
+    trajectory['view_date'] = interaction['view_date']
+
+    # action
+    trajectory['discount_rate'] = interaction['discount_rate']
+    trajectory['list_price'] = interaction['list_price']
+    trajectory['discount_price'] = interaction['discount_price']
+    trajectory['sales_release_date'] = interaction['sales_release_date']
+    trajectory['sales_end_date'] = interaction['sales_end_date']
+    trajectory['sales_period'] = interaction['sales_period']
+
+    # reward
+    trajectory['purchased'] = interaction['purchased']
+
+    # trajectory
+    trajectories.append(copy.deepcopy(trajectory))
+
+    trajectory['visit'] += 1
+    if trajectory['purchased']:
+        trajectory['success_time_recency'] = 0
+        trajectory['success'] += 1
+
+        trajectory['purchased'] += interaction['purchased_count']
+        trajectory['spent'] += interaction['purchased_count'] * interaction['discount_price']
+
+print("Built {0} trajectories".format(
+    len(trajectories))
+)
+
+with open('user_trajectories.csv', 'w') as csvfile:
     csvwriter = csv.writer(csvfile, delimiter=',')
     csvwriter.writerow(trajectories[0].keys())
     for trajectory in trajectories:
