@@ -57,6 +57,26 @@ for row in foreach('coupon_list_train', 'coupon_list_test'):
     #    'valid_end_date': datetime.strptime(row[9], '%Y-%m-%d'),
     #    'valid_end_date': datetime.strptime(row[10], '%Y-%m-%d'),
 
+# coupon details
+coupon_details = dict()
+for row in foreach('coupon_detail_train'):
+    coupon_details[row[3]] = {
+        'purchased_count': int(row[0]),
+        'purchase_date': datetime.strptime(row[1], '%Y-%m-%d %H:%M:%S'),
+        'purchase_id': row[3],
+        'customer_id': row[4],
+        'coupon_id': row[5],
+    }
+
+# coupon areas
+coupon_areas = dict()
+for row in foreach('coupon_area_train', 'coupon_area_test'):
+    coupon_areas[row[2]] = {
+        'small_area': row[0],
+        'prefecture': row[1],
+        'coupon_id': row[2],
+    }
+
 # coupon visits
 # TODO: categorize referer
 coupon_visits = list()
@@ -71,19 +91,6 @@ for row in foreach('coupon_visit_train'):
     if coupon_visits[-1]['purchased']:
         assert row[7]
         coupon_visits[-1]['purchase_id'] = row[7]
-
-# coupon details
-coupon_details = dict()
-for row in foreach('coupon_detail_train'):
-    coupon_details[row[3]] = {
-        'purchased_count': int(row[0]),
-        'purchase_date': datetime.strptime(row[1], '%Y-%m-%d %H:%M:%S'),
-        'purchase_id': row[3],
-        'customer_id': row[4],
-        'coupon_id': row[5],
-    }
-
-# TODO: coupon_area_train.csv
 
 # denormolize customer trajectories
 trajectories = list()
