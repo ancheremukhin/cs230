@@ -1,58 +1,26 @@
-import gym
-from utils.preprocess import greyscale
-from utils.wrappers import PreproWrapper, MaxAndSkipEnv
+#!/usr/bin/env python
+import os
+import numpy as np
 
 import tensorflow as tf
 import tensorflow.contrib.layers as layers
+from keras.models import Sequential
+from keras.layers import Dense, Activation
 
-from utils.general import get_logger
-from utils.test_env import EnvTest
-from schedule import LinearExploration, LinearSchedule
-from nature import NatureQN
-
+from par_env import ParEnv
 from config.config import config
 
+env = ParEnv('user_trajectories.csv', gamma=config.gamma)
+model = Sequential()
 
-class NeuralFittedDQN(NatureQN):
-    """
-    Neural Fitted Q Iteration
-    see http://ml.informatik.uni-freiburg.de/former/_media/publications/rieecml05.pdf
-    """
-    def add_loss_op(self, q, target_q):
-        """
-        Sets the loss of a batch, self.loss is a scalar
+model.add(Dense(units=16, activation='relu', input_dim=env.input_dim()))
+model.add(Dense(units=16, activation='relu'))
+model.add(Dense(units=16, activation='relu'))
+model.add(Dense(units=1, activation='relu'))
 
-        Neural Fitted DQN
+model.compile(loss='mean_squared_error', optimizer='sgd')
 
-        Args:
-            q: (tf tensor) shape = (batch_size, num_actions)
-            target_q: (tf tensor) shape = (batch_size, num_actions)
-        """
-        num_actions = self.env.action_space.n
-        batch_size = tf.shape(self.q_sp)[0]
+print("Fitting model...")
 
-        indexes = tf.argmax(self.q_sp, axis=1)
-        indexes += tf.cast(tf.range(batch_size) * num_actions, tf.int64)
-
-        next_q = tf.multiply(
-            tf.cast(tf.logical_not(self.done_mask), dtype=tf.float32),
-            tf.gather(tf.reshape(target_q, [-1]), indexes)
-        )
-
-        samp_q = tf.add(
-            self.r,
-            self.config.gamma * next_q
-        )
-
-        self.loss = tf.reduce_sum(
-            tf.square(
-                tf.multiply(
-                    tf.one_hot(self.a, num_actions),
-                    tf.subtract(tf.reshape(samp_q, [-1, 1]), q)
-                )
-            )
-        )
-        self.loss = tf.div(self.loss, tf.cast(batch_size, dtype=tf.float32))
-
-
-
+model.fit(env.sa, env.r, epochs=1, batch_size=config.batch_size)
+print(model.summary())

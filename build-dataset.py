@@ -165,13 +165,13 @@ for interaction in interactions:
             'visit_time_recency': 0,
             'success': 0,
             'success_time_recency': 0,
-            'purchased': 0,
-            'spent': 0,
+            'purchased_count': 0,
+            'purchased_money': 0,
             # customer
             'customer_id': interaction['customer_id'],
             'age': interaction['age'],
-            'reg_date': interaction['reg_date'],
-            'sex': interaction['sex'],
+            'reg_date': interaction['reg_date'].timestamp(),
+            'sex': int(interaction['sex']),
             # view date
             'view_date': interaction['view_date'],
         }
@@ -188,15 +188,16 @@ for interaction in interactions:
     trajectory['view_date'] = interaction['view_date']
 
     # action
+    trajectory['coupon_id'] = interaction['coupon_id']
     trajectory['discount_rate'] = interaction['discount_rate']
     trajectory['list_price'] = interaction['list_price']
     trajectory['discount_price'] = interaction['discount_price']
-    trajectory['sales_release_date'] = interaction['sales_release_date']
-    trajectory['sales_end_date'] = interaction['sales_end_date']
+    trajectory['sales_release_date'] = interaction['sales_release_date'].timestamp()
+    trajectory['sales_end_date'] = interaction['sales_end_date'].timestamp()
     trajectory['sales_period'] = interaction['sales_period']
 
     # reward
-    trajectory['purchased'] = interaction['purchased']
+    trajectory['purchased'] = int(interaction['purchased'])
 
     # trajectory
     trajectories.append(copy.deepcopy(trajectory))
@@ -206,8 +207,10 @@ for interaction in interactions:
         trajectory['success_time_recency'] = 0
         trajectory['success'] += 1
 
-        trajectory['purchased'] += interaction['purchased_count']
-        trajectory['spent'] += interaction['purchased_count'] * interaction['discount_price']
+        trajectory['purchased_count'] += interaction['purchased_count']
+        trajectory['purchased_money'] += (
+            interaction['purchased_count'] * interaction['discount_price']
+        )
 
 print("Built {0} trajectories".format(
     len(trajectories))
