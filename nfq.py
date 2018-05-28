@@ -22,5 +22,9 @@ model.compile(loss='mean_squared_error', optimizer='sgd')
 
 print("Fitting model...")
 
-model.fit(env.sa, env.r, epochs=1, batch_size=config.batch_size)
+model.fit(
+    np.array(env.sa, dtype=np.float),
+    np.array(env.r, dtype=np.float),
+    epochs=5, batch_size=config.batch_size
+)
 print(model.summary())

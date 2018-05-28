@@ -20,8 +20,8 @@ class ParEnv(object):
         # discount factor, by default agent is myopic
         self.gamma = gamma
         # states, actions, rewards
-        self.sa = np.array((None, len(ParEnv.SA_FIELDS)), dtype=np.float)
-        self.r = np.array((None, ), dtype=np.float)
+        self.sa = list()
+        self.r = list()
 
         trajectories = list()
         with open(path, 'r') as csvfile:
@@ -47,7 +47,7 @@ class ParEnv(object):
             for interaction in trajectory:
 
                 # state and action
-                self.sa = np.append(self.sa, [float(interaction[k]) for k in ParEnv.SA_FIELDS], axis=0)
+                self.sa.append([float(interaction[k]) for k in ParEnv.SA_FIELDS])
                 # reward
                 rewards.append(float(interaction['purchased']))
 
@@ -55,10 +55,10 @@ class ParEnv(object):
                 reward = np.sum([
                     rewards[i + j] * (self.gamma ** j) for j in range(len(rewards[i:]))
                 ])
-                self.r = np.append(self.r, reward)
+                self.r.append(reward)
 
     def input_dim(self):
-        return self.sa.shape[1]
+        return len(ParEnv.SA_FIELDS)
 
 
 if __name__ == '__main__':
